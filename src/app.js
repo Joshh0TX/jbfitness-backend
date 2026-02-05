@@ -22,7 +22,7 @@ const app = express();
 
 /* Middleware */
 app.use(cors({
-  origin: "https://jb-fitness.vercel.app", // <-- your Vercel frontend URL
+  origin: process.env.ALLOWED_ORIGINS, // <-- your Vercel frontend URL
   credentials: true
 }));
 app.use(express.json()); // parse JSON bodies
@@ -50,6 +50,11 @@ app.use("/api/users", userProfileRoutes);
 app.get("/", (req, res) => {
   res.json({ message: "JBFitness API is running" });
 });
+
+app.get("/test", (req, res) => {
+  res.send("Backend is working");
+});
+
 
 /* Global error handler (optional but recommended) */
 app.use((err, req, res, next) => {
