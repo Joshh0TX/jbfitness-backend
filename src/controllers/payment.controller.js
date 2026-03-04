@@ -3,6 +3,15 @@ import db from "../config/db.js";
 
 const PAYSTACK_BASE_URL = "https://api.paystack.co";
 
+const getPaystackSecretKey = () => {
+  return String(
+    process.env.PAYSTACK_SECRET_KEY ||
+      process.env.PAYSTACK_SECRET ||
+      process.env.PAYSTACK_TEST_SECRET_KEY ||
+      ""
+  ).trim();
+};
+
 const getAllowedOrigins = () => {
   const raw = String(process.env.ALLOWED_ORIGINS || "");
   return raw
@@ -54,7 +63,9 @@ const formatNaira = (amountKobo) => {
 
 export const initializePaystackPayment = async (req, res) => {
   try {
-    if (!process.env.PAYSTACK_SECRET_KEY) {
+    const paystackSecretKey = getPaystackSecretKey();
+
+    if (!paystackSecretKey) {
       return res.status(500).json({ message: "Paystack secret key is not configured" });
     }
 
@@ -103,7 +114,7 @@ export const initializePaystackPayment = async (req, res) => {
       payload,
       {
         headers: {
-          Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+          Authorization: `Bearer ${paystackSecretKey}`,
           "Content-Type": "application/json",
         },
       }
@@ -135,7 +146,9 @@ export const initializePaystackPayment = async (req, res) => {
 
 export const verifyPaystackPayment = async (req, res) => {
   try {
-    if (!process.env.PAYSTACK_SECRET_KEY) {
+    const paystackSecretKey = getPaystackSecretKey();
+
+    if (!paystackSecretKey) {
       return res.status(500).json({ message: "Paystack secret key is not configured" });
     }
 
@@ -154,7 +167,7 @@ export const verifyPaystackPayment = async (req, res) => {
       `${PAYSTACK_BASE_URL}/transaction/verify/${encodeURIComponent(reference)}`,
       {
         headers: {
-          Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+          Authorization: `Bearer ${paystackSecretKey}`,
         },
       }
     );
