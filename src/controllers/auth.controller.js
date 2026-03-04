@@ -276,15 +276,31 @@ export const loginUser = async (req, res) => {
       otp,
     });
 
-    await sendOtpEmail({ email: user.email, otp, username: user.username });
+    try {
+      await sendOtpEmail({ email: user.email, otp, username: user.username });
 
-    res.json({
-      msg: "Verification code sent to your email",
-      requiresOtp: true,
-      challengeId,
-      email: user.email,
-      expiresInMs: LOGIN_OTP_TTL_MS,
-    });
+      return res.json({
+        msg: "Verification code sent to your email",
+        requiresOtp: true,
+        challengeId,
+        email: user.email,
+        expiresInMs: LOGIN_OTP_TTL_MS,
+      });
+    } catch (mailError) {
+      console.error("Login OTP email send failed, bypassing OTP:", mailError);
+      const token = jwt.sign(
+        { id: user.id, username: user.username, email: user.email },
+        process.env.JWT_SECRET,
+        { expiresIn: "1d" }
+      );
+
+      return res.json({
+        msg: "Login successful",
+        token,
+        user: { id: user.id, username: user.username, email: user.email },
+        twoFactorBypassed: true,
+      });
+    }
   } catch (err) {
     console.error("Login ERROR:", err);
     res.status(500).json({ msg: err.message || "Server error" });
