@@ -2,11 +2,13 @@
 
 import express from "express";
 import {
-	registerUser,
-	loginUser,
-	verifyLoginOtp,
-	resendLoginOtp,
-	validateRegistrationEmail,
+  registerUser,
+  loginUser,
+  forgotPassword,
+  resetPassword,
+  verifyLoginOtp,
+  resendLoginOtp,
+  validateRegistrationEmail,
 	requestPasswordResetOtp,
 	resendPasswordResetOtp,
 	resetPasswordWithOtp,
@@ -22,6 +24,12 @@ router.post("/validate-email", validateRegistrationEmail);
 
 // POST /api/auth/login
 router.post("/login", loginUser);
+
+// POST /api/auth/forgot-password
+router.post("/forgot-password", forgotPassword);
+
+// POST /api/auth/reset-password
+router.post("/reset-password", resetPassword);
 
 // POST /api/auth/verify-login-otp
 router.post("/verify-login-otp", verifyLoginOtp);

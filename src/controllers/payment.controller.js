@@ -3,13 +3,38 @@ import db from "../config/db.js";
 
 const PAYSTACK_BASE_URL = "https://api.paystack.co";
 
+const PAYSTACK_SECRET_ENV_KEYS = [
+  "PAYSTACK_SECRET_KEY",
+  "PAYSTACK_SECRET",
+  "PAYSTACK_TEST_SECRET_KEY",
+  "PAYSTACK_LIVE_SECRET_KEY",
+  "PAYSTACK_SECRETKEY",
+  "VITE_PAYSTACK_SECRET_KEY",
+];
+
 const getPaystackSecretKey = () => {
-  return String(
-    process.env.PAYSTACK_SECRET_KEY ||
-      process.env.PAYSTACK_SECRET ||
-      process.env.PAYSTACK_TEST_SECRET_KEY ||
-      ""
-  ).trim();
+  for (const key of PAYSTACK_SECRET_ENV_KEYS) {
+    const value = String(process.env[key] || "").trim();
+    if (value) {
+      return value;
+    }
+  }
+
+  return "";
+};
+
+const getMissingPaystackKeyResponse = () => {
+  const presentEnvVars = PAYSTACK_SECRET_ENV_KEYS.filter((key) =>
+    Boolean(String(process.env[key] || "").trim())
+  );
+
+  return {
+    message: "Paystack secret key is not configured",
+    checkedEnvVars: PAYSTACK_SECRET_ENV_KEYS,
+    presentEnvVars,
+    envFileUsed: process.env.ENV_FILE_USED || null,
+    nodeEnv: process.env.NODE_ENV || null,
+  };
 };
 
 const getAllowedOrigins = () => {
@@ -66,7 +91,9 @@ export const initializePaystackPayment = async (req, res) => {
     const paystackSecretKey = getPaystackSecretKey();
 
     if (!paystackSecretKey) {
-      return res.status(500).json({ message: "Paystack secret key is not configured" });
+      const diagnostics = getMissingPaystackKeyResponse();
+      console.error("[payments] missing Paystack secret key", diagnostics);
+      return res.status(500).json(diagnostics);
     }
 
     const userId = req.user?.id;
@@ -149,7 +176,9 @@ export const verifyPaystackPayment = async (req, res) => {
     const paystackSecretKey = getPaystackSecretKey();
 
     if (!paystackSecretKey) {
-      return res.status(500).json({ message: "Paystack secret key is not configured" });
+      const diagnostics = getMissingPaystackKeyResponse();
+      console.error("[payments] missing Paystack secret key", diagnostics);
+      return res.status(500).json(diagnostics);
     }
 
     const userId = req.user?.id;
