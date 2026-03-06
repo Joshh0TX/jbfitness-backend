@@ -279,48 +279,16 @@ export const loginUser = async (req, res) => {
       return res.status(401).json({ msg: "Invalid credentials" });
     }
 
-    if (!isEmailServiceConfigured()) {
-      const token = jwt.sign(
-        { id: user.id, username: user.username, email: user.email },
-        process.env.JWT_SECRET,
-        { expiresIn: "1d" }
-      );
-
-      return res.json({
-        msg: "Login successful",
-        token,
-        user: { id: user.id, username: user.username, email: user.email },
-        twoFactorBypassed: true,
-      });
-    }
-
-    const otp = generateOtp();
-    const challengeId = createLoginChallengeToken({
-      userId: user.id,
-      username: user.username,
-      email: user.email,
-      otp,
-    });
-
-    try {
-      await withTimeout(
-        sendOtpEmail({ email: user.email, otp, username: user.username }),
-        EMAIL_SEND_TIMEOUT_MS,
-        "Login OTP email timeout"
-      );
-    } catch (mailError) {
-      console.error("Login OTP email send issue:", mailError);
-      return res.status(503).json({
-        msg: "Unable to send verification code right now. Please try again.",
-      });
-    }
+    const token = jwt.sign(
+      { id: user.id, username: user.username, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: "1d" }
+    );
 
     return res.json({
-      msg: "Verification code sent to your email",
-      requiresOtp: true,
-      challengeId,
-      email: user.email,
-      expiresInMs: LOGIN_OTP_TTL_MS,
+      msg: "Login successful",
+      token,
+      user: { id: user.id, username: user.username, email: user.email },
     });
   } catch (err) {
     console.error("Login ERROR:", err);
