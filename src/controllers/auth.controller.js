@@ -16,8 +16,11 @@ const EMAIL_SEND_TIMEOUT_MS = Number(process.env.EMAIL_SEND_TIMEOUT_MS || 20000)
 
 const smtpService = String(process.env.SMTP_SERVICE || "").trim().toLowerCase();
 const smtpHost = String(process.env.SMTP_HOST || "").trim();
-const smtpPort = Number(process.env.SMTP_PORT || 587);
-const smtpSecure = String(process.env.SMTP_SECURE).toLowerCase() === "true";
+const smtpResolvedHost = smtpHost || (smtpService === "gmail" ? "smtp.gmail.com" : "");
+const smtpPort = Number(process.env.SMTP_PORT || (smtpService === "gmail" ? 587 : 587));
+const smtpSecure =
+  String(process.env.SMTP_SECURE || (smtpPort === 465 ? "true" : "false")).toLowerCase() ===
+  "true";
 const smtpUser = String(process.env.SMTP_USER || "").trim();
 const smtpPass = String(process.env.SMTP_PASS || "").trim();
 const smtpFrom = String(process.env.SMTP_FROM || smtpUser).trim();
@@ -25,39 +28,33 @@ const smtpAuthConfigured = Boolean(smtpUser && smtpPass);
 const smtpConnectionTimeout = Number(process.env.SMTP_CONNECTION_TIMEOUT_MS || 15000);
 const smtpGreetingTimeout = Number(process.env.SMTP_GREETING_TIMEOUT_MS || 15000);
 const smtpSocketTimeout = Number(process.env.SMTP_SOCKET_TIMEOUT_MS || 20000);
+const smtpForceIpv4 = String(process.env.SMTP_FORCE_IPV4 || "true").toLowerCase() !== "false";
 
-const mailTransporter = nodemailer.createTransport(
-  smtpService === "gmail"
+const mailTransporter = nodemailer.createTransport({
+  host: smtpResolvedHost,
+  port: smtpPort,
+  secure: smtpSecure,
+  requireTLS: !smtpSecure,
+  family: smtpForceIpv4 ? 4 : undefined,
+  connectionTimeout: smtpConnectionTimeout,
+  greetingTimeout: smtpGreetingTimeout,
+  socketTimeout: smtpSocketTimeout,
+  tls: smtpResolvedHost
     ? {
-        service: "gmail",
-        connectionTimeout: smtpConnectionTimeout,
-        greetingTimeout: smtpGreetingTimeout,
-        socketTimeout: smtpSocketTimeout,
-        auth: smtpAuthConfigured
-          ? {
-              user: smtpUser,
-              pass: smtpPass,
-            }
-          : undefined,
+        servername: smtpResolvedHost,
+        minVersion: "TLSv1.2",
       }
-    : {
-        host: smtpHost,
-        port: smtpPort,
-        secure: smtpSecure,
-        connectionTimeout: smtpConnectionTimeout,
-        greetingTimeout: smtpGreetingTimeout,
-        socketTimeout: smtpSocketTimeout,
-        auth: smtpAuthConfigured
-          ? {
-              user: smtpUser,
-              pass: smtpPass,
-            }
-          : undefined,
+    : undefined,
+  auth: smtpAuthConfigured
+    ? {
+        user: smtpUser,
+        pass: smtpPass,
       }
-);
+    : undefined,
+});
 
 const isEmailServiceConfigured = () => {
-  const hasProvider = smtpService === "gmail" || Boolean(smtpHost);
+  const hasProvider = Boolean(smtpResolvedHost);
   return Boolean(hasProvider && smtpAuthConfigured && smtpFrom);
 };
 
