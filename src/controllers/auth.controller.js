@@ -303,6 +303,9 @@ export const loginUser = async (req, res) => {
       );
     } catch (mailError) {
       console.error("Login OTP email send issue:", mailError);
+      return res.status(503).json({
+        msg: "Unable to send verification code right now. Please try again.",
+      });
     }
 
     return res.json({
