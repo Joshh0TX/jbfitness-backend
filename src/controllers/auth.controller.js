@@ -12,6 +12,7 @@ const LOGIN_OTP_TTL_MS = 10 * 60 * 1000;
 const LOGIN_OTP_TTL_SECONDS = Math.floor(LOGIN_OTP_TTL_MS / 1000);
 const RESET_OTP_TTL_MS = 10 * 60 * 1000;
 const RESET_OTP_TTL_SECONDS = Math.floor(RESET_OTP_TTL_MS / 1000);
+const EMAIL_SEND_TIMEOUT_MS = Number(process.env.EMAIL_SEND_TIMEOUT_MS || 20000);
 
 const smtpService = String(process.env.SMTP_SERVICE || "").trim().toLowerCase();
 const smtpHost = String(process.env.SMTP_HOST || "").trim();
@@ -21,11 +22,17 @@ const smtpUser = String(process.env.SMTP_USER || "").trim();
 const smtpPass = String(process.env.SMTP_PASS || "").trim();
 const smtpFrom = String(process.env.SMTP_FROM || smtpUser).trim();
 const smtpAuthConfigured = Boolean(smtpUser && smtpPass);
+const smtpConnectionTimeout = Number(process.env.SMTP_CONNECTION_TIMEOUT_MS || 15000);
+const smtpGreetingTimeout = Number(process.env.SMTP_GREETING_TIMEOUT_MS || 15000);
+const smtpSocketTimeout = Number(process.env.SMTP_SOCKET_TIMEOUT_MS || 20000);
 
 const mailTransporter = nodemailer.createTransport(
   smtpService === "gmail"
     ? {
         service: "gmail",
+        connectionTimeout: smtpConnectionTimeout,
+        greetingTimeout: smtpGreetingTimeout,
+        socketTimeout: smtpSocketTimeout,
         auth: smtpAuthConfigured
           ? {
               user: smtpUser,
@@ -37,6 +44,9 @@ const mailTransporter = nodemailer.createTransport(
         host: smtpHost,
         port: smtpPort,
         secure: smtpSecure,
+        connectionTimeout: smtpConnectionTimeout,
+        greetingTimeout: smtpGreetingTimeout,
+        socketTimeout: smtpSocketTimeout,
         auth: smtpAuthConfigured
           ? {
               user: smtpUser,
@@ -298,7 +308,7 @@ export const loginUser = async (req, res) => {
     try {
       await withTimeout(
         sendOtpEmail({ email: user.email, otp, username: user.username }),
-        6000,
+        EMAIL_SEND_TIMEOUT_MS,
         "Login OTP email timeout"
       );
     } catch (mailError) {
