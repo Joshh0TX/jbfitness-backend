@@ -1,4 +1,5 @@
 import { Pool } from "pg";
+import dns from "dns";
 
 function toPgPlaceholders(sql) {
   let idx = 0;
@@ -75,11 +76,15 @@ const connectionString =
   process.env.POSTGRES_URL;
 const shouldUseSsl = String(process.env.PGSSL || "true").toLowerCase() !== "false";
 
+const forceIpv4Lookup = (hostname, options, callback) =>
+  dns.lookup(hostname, { ...options, family: 4, all: false }, callback);
+
 const pool = new Pool(
   connectionString
     ? {
         connectionString,
         ssl: shouldUseSsl ? { rejectUnauthorized: false } : false,
+        lookup: forceIpv4Lookup,
       }
     : {
         host: process.env.PGHOST,
@@ -88,6 +93,7 @@ const pool = new Pool(
         database: process.env.PGDATABASE,
         port: Number(process.env.PGPORT || 5432),
         ssl: shouldUseSsl ? { rejectUnauthorized: false } : false,
+        lookup: forceIpv4Lookup,
       }
 );
 
