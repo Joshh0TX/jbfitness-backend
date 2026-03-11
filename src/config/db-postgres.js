@@ -6,6 +6,8 @@ if (!connectionString) {
   throw new Error("DATABASE_URL environment variable is not set");
 }
 
+// Use postgres library with Supabase connection pooler
+// Pooler avoids IPv6 routing issues and provides better connection management
 const sql = postgres(connectionString, {
   ssl: process.env.PGSSL !== "false" ? "require" : false,
   max: 10,
@@ -16,10 +18,10 @@ const sql = postgres(connectionString, {
 async function testConnection() {
   try {
     const result = await sql`SELECT 1 as test`;
-    console.log("✅ Postgres connection successful");
+    console.log(" Postgres connection successful");
     return true;
   } catch (error) {
-    console.error("❌ Postgres connection failed:", error.message);
+    console.error(" Postgres connection failed:", error.message);
     return false;
   }
 }
