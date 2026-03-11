@@ -30,11 +30,11 @@ app.use(express.json()); // parse JSON bodies
 /* Optional: check DB connection on startup */
 db.getConnection()
   .then(conn => {
-    console.log(" MySQL pool connected");
+    console.log(" Postgres pool connected");
     conn.release();
   })
   .catch(err => {
-    console.error(" MySQL connection failed:", err);
+    console.error(" Postgres connection failed:", err);
   });
 
 /* Routes */
