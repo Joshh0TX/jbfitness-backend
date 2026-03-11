@@ -226,7 +226,7 @@ export const registerUser = async (req, res) => {
 
     // Insert new user
     const [result] = await db.query(
-      "INSERT INTO users (username, email, password) VALUES (?, ?, ?)",
+      "INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)",
       [username, normalizedEmail, hashedPassword]
     );
 
