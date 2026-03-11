@@ -87,7 +87,7 @@ function buildPoolConfig(urlString) {
   };
 }
 
-function buildSupabaseDirectFallbackConfig(urlString) {
+function buildSupabaseSessionFallbackConfig(urlString) {
   if (!urlString) {
     return null;
   }
@@ -98,20 +98,6 @@ function buildSupabaseDirectFallbackConfig(urlString) {
       return null;
     }
 
-    const username = decodeURIComponent(parsed.username || "");
-    const fromUsername = username.startsWith("postgres.")
-      ? username.slice("postgres.".length)
-      : "";
-    const projectRef =
-      process.env.SUPABASE_PROJECT_REF ||
-      process.env.SUPABASE_REF ||
-      fromUsername;
-
-    if (!projectRef) {
-      return null;
-    }
-
-    parsed.hostname = `db.${projectRef}.supabase.co`;
     parsed.port = "5432";
     parsed.username = "postgres";
     parsed.search = "";
@@ -143,7 +129,7 @@ const primaryPool = new Pool(
       }
 );
 
-const fallbackPoolConfig = buildSupabaseDirectFallbackConfig(connectionString);
+const fallbackPoolConfig = buildSupabaseSessionFallbackConfig(connectionString);
 let fallbackPool = null;
 
 async function runWithPoolFallback(execute) {
@@ -156,7 +142,7 @@ async function runWithPoolFallback(execute) {
 
     if (!fallbackPool) {
       fallbackPool = new Pool(fallbackPoolConfig);
-      console.warn("⚠️ Supabase pooler auth failed, retrying with direct Postgres host...");
+      console.warn("⚠️ Supabase transaction pooler auth failed, retrying with session pooler...");
     }
 
     return execute(fallbackPool);
