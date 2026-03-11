@@ -79,13 +79,59 @@ const shouldUseSsl = String(process.env.PGSSL || "true").toLowerCase() !== "fals
 const forceIpv4Lookup = (hostname, options, callback) =>
   dns.lookup(hostname, { ...options, family: 4, all: false }, callback);
 
-const pool = new Pool(
+function buildPoolConfig(urlString) {
+  return {
+    connectionString: urlString,
+    ssl: shouldUseSsl ? { rejectUnauthorized: false } : false,
+    lookup: forceIpv4Lookup,
+  };
+}
+
+function buildSupabaseDirectFallbackConfig(urlString) {
+  if (!urlString) {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(urlString);
+    if (!/pooler\.supabase\.com$/i.test(parsed.hostname)) {
+      return null;
+    }
+
+    const username = decodeURIComponent(parsed.username || "");
+    const fromUsername = username.startsWith("postgres.")
+      ? username.slice("postgres.".length)
+      : "";
+    const projectRef =
+      process.env.SUPABASE_PROJECT_REF ||
+      process.env.SUPABASE_REF ||
+      fromUsername;
+
+    if (!projectRef) {
+      return null;
+    }
+
+    parsed.hostname = `db.${projectRef}.supabase.co`;
+    parsed.port = "5432";
+    parsed.username = "postgres";
+    parsed.search = "";
+
+    return buildPoolConfig(parsed.toString());
+  } catch {
+    return null;
+  }
+}
+
+function isTenantOrUserError(error) {
+  return (
+    String(error?.code || "").toUpperCase() === "XX000" &&
+    /tenant or user not found/i.test(String(error?.message || ""))
+  );
+}
+
+const primaryPool = new Pool(
   connectionString
-    ? {
-        connectionString,
-        ssl: shouldUseSsl ? { rejectUnauthorized: false } : false,
-        lookup: forceIpv4Lookup,
-      }
+    ? buildPoolConfig(connectionString)
     : {
         host: process.env.PGHOST,
         user: process.env.PGUSER,
@@ -96,6 +142,26 @@ const pool = new Pool(
         lookup: forceIpv4Lookup,
       }
 );
+
+const fallbackPoolConfig = buildSupabaseDirectFallbackConfig(connectionString);
+let fallbackPool = null;
+
+async function runWithPoolFallback(execute) {
+  try {
+    return await execute(primaryPool);
+  } catch (error) {
+    if (!isTenantOrUserError(error) || !fallbackPoolConfig) {
+      throw error;
+    }
+
+    if (!fallbackPool) {
+      fallbackPool = new Pool(fallbackPoolConfig);
+      console.warn("⚠️ Supabase pooler auth failed, retrying with direct Postgres host...");
+    }
+
+    return execute(fallbackPool);
+  }
+}
 
 async function runQuery(sql, params = [], client = pool) {
   const normalized = normalizeSql(sql, params);
@@ -136,15 +202,15 @@ async function runQuery(sql, params = [], client = pool) {
 
 const db = {
   query(sql, params = []) {
-    return runQuery(sql, params, pool);
+    return runWithPoolFallback((client) => runQuery(sql, params, client));
   },
 
   execute(sql, params = []) {
-    return runQuery(sql, params, pool);
+    return runWithPoolFallback((client) => runQuery(sql, params, client));
   },
 
   async getConnection() {
-    const client = await pool.connect();
+    const client = await runWithPoolFallback((poolClient) => poolClient.connect());
     return {
       query(sql, params = []) {
         return runQuery(sql, params, client);
@@ -159,7 +225,10 @@ const db = {
   },
 
   end() {
-    return pool.end();
+    if (fallbackPool) {
+      fallbackPool.end();
+    }
+    return primaryPool.end();
   },
 };
 
